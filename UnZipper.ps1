@@ -18,9 +18,9 @@ while (($zipFiles | Measure-Object).Count -gt 0){
     foreach($zipFile in $zipFiles){
         $zipPath = Join-Path $directory $zipFile
         Write-Host "Extracting $($zipPath) to $($directory)"
-        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath,$directory)
+        #[System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath,$directory)
         Write-Host "Deleting Zip Folder $($zipPath)"
-        Remove-Item -Path $zipPath
+        #Remove-Item -Path $zipPath
     }
     $zipFiles = Get-ChildItem -Path $directory -Filter *.zip
 }
@@ -34,5 +34,5 @@ foreach($txtFile in $txtFiles){
     $txtPath = Join-Path $directory $txtFile
     $targetPath = Join-Path $targetDirectory $txtFile
     Write-Host "Moving File $($txtPath) to $($targetPath)"
-    Move-Item -Path $txtPath -Destination $targetPath 
+    #Move-Item -Path $txtPath -Destination $targetPath 
 }
