@@ -1,7 +1,7 @@
 #Initial Variables
 $ServerAppName = "ValmonServer-Dev-DV6" 
 $ClientAppName = "ValmonClient-Dev-DV6" 
-[Collections.Generic.List[String]]$replyUrls = $OctopusParameters["IDS.Auth.API.ReplyUrls"].Split(',');
+[Collections.Generic.List[String]]$replyUrls = $OctopusParameters["IDS.Auth.API.ReplyUrls"].Split(',')
 
 #######################################################################################################################
 
@@ -13,7 +13,7 @@ $ServerApp = Get-AzureADApplication -Filter $query
 
 #Create Server App If It Does Not Exist
 if ($ServerApp -eq $null){
-  Write-Host $ServerAppName "Does Not Exist, Creating..." 
+  Write-Host $ServerAppName "Does Not Exist, Creating..."
   New-AzureADApplication -DisplayName $ServerAppName 
 }else{
   Remove-AzureADApplication -ObjectId $ServerApp.ObjectId 
@@ -31,9 +31,9 @@ Set-AzureADApplication -ObjectId $ServerApp.ObjectId -IdentifierUris $Identifier
 #######################################################################################################################
 
 #Rename OAuth Permission on Server
-$OAuthPerm = $ServerApp.Oauth2Permissions[O]
+$OAuthPerm = $ServerApp.Oauth2Permissions[0]
 $OAuthPerm.Value = "API.Access"
-Set-AzureADApplication -ObjectId $ServerApp.ObjectId -Oauth2Permissions Ea($OAuthPerm) 
+Set-AzureADApplication -ObjectId $ServerApp.ObjectId -Oauth2Permissions @($OAuthPerm) 
 $ServerApp = Get-AzureADApplication -Filter $query
 
 #######################################################################################################################
@@ -42,11 +42,11 @@ $ServerApp = Get-AzureADApplication -Filter $query
 $ServerEnterpriseApp = Get-AzureADServicePrincipal -SearchString $ServerAppName
 if ($ServerEnterpriseApp -eq $null){
   Write-Host "Enterprise Server App Does Not Exist"
-  New-AzureADServicePrincipal -AccountEnabled $true -AppId $ServerApp.AppId -AppRoleAssignmentRequired Strue -DisplayName $ServerAppName
+  New-AzureADServicePrincipal -AccountEnabled $true -AppId $ServerApp.AppId -AppRoleAssignmentRequired $true -DisplayName $ServerAppName
 }else{
   Write-Host "Enterprise Server App Already Exists" 
   Remove-AzureADServicePrincipal -ObjectId $ServerEnterpriseApp.ObjectId
-  Set-AzureADServicePrincipal -ObjectId $ServerEnterpriseApp.ObjectId -AccountEnabled $true -AppId $ServerApp.AppId -AppRoleAssignmentRequired Strue -DisplayName $ServerAppName
+  Set-AzureADServicePrincipal -ObjectId $ServerEnterpriseApp.ObjectId -AccountEnabled $true -AppId $ServerApp.AppId -AppRoleAssignmentRequired $true -DisplayName $ServerAppName
 }
 
 #######################################################################################################################
@@ -59,11 +59,11 @@ $ClientApp = Get-AzureADApplication -Filter $query
 
 #Create Client App If It Does Not Exist 
 if ($ClientApp -eq $null){
-   Write-Host $ClientAppName "Does Not Exist, Creating...-
+   Write-Host $ClientAppName "Does Not Exist, Creating..."
    New-AzureADApplication -DisplayName $ClientAppName 
 }else{
    Remove-AzureADApplication -ObjectId $ClientApp.ObjectId 
-   Write-Host $ClientAppName "Already Exists- 
+   Write-Host $ClientAppName "Already Exists"
    New-AzureADApplication -DisplayName $ClientAppName
 }
 $ClientApp = Get-AzureADApplication -Filter $query
@@ -72,13 +72,13 @@ $ClientApp = Get-AzureADApplication -Filter $query
 
 #Get Auth Token
 $auth_endpoint = $OctopusParameters["AzureAd:Authority"] 
-$token_endpoint = "$auth_endpoint'oauth2/v2.O/token- 
-$body =
-  client_id  = $OctopusParameters[-AppOctopusAppClientID-]
-  scope      = -https://graph.microsoft.com/.default"
-  client_secret = $OctopusParametersrAzurePlatform.Application[ids].Deployment.ServicePrincipal.Secreti
+$token_endpoint = "$auth_endpoint/oauth2/v2.0/token"
+$body = @{
+  client_id  = $OctopusParameters["AppOctopusAppClientID"]
+  scope      = "https://graph.microsoft.com/.default"
+  client_secret = $OctopusParameters["AzurePlatform.Application[ids].Deployment.ServicePrincipal.Secret"]
   grant_type = 'client_credentials'
-1
+}
 $responseOauth2 = Invoke-RestMethod -Method Post -Uri $token_endpoint -Body $body
 $accessToken = $responseOauth2.access_token
 Write-Host "Got Access Token"
@@ -95,14 +95,14 @@ $body = @{
    "spa" = @{
       "redirectUris" = $replyUrls
    }
-  | ConvertTo-Json
-Invoke-RestMethod -Method Patch -Uri Https://graph.microsoft.com/v1.O/applications $($ClientApp.ObjectId) -Headers $header -Body $body
+}  | ConvertTo-Json
+Invoke-RestMethod -Method Patch -Uri Https://graph.microsoft.com/v1.0/applications $($ClientApp.ObjectId) -Headers $header -Body $body
 
 #######################################################################################################################
 
 #Create Graph Perms For Client App
 $GraphApiRequiredResourceAccess = New-Object -TypeName Microsoft.Open.AzureAD.Model.RequiredResourceAccess 
-$GraphApiRequiredResourceAccess.ResourceAppld = 'OOOOOOO2-OOOO-OOOO-cOOO-OOOOOOOOOOOO'
+$GraphApiRequiredResourceAccess.ResourceAppId = '00000002-0000-0000-c000-000000000000'
 $GraphiApiDelegatedUserRead = New-Object -TypeName 'Microsoft.Open.AzureAD.Model.ResourceAccess' 
 $GraphiApiDelegateduserRead.id = '311a71cc-e848-46a1-bdf8-97ff7156d8e6'
 $GraphiApiDelegateduserRead.type = 'Scope'
@@ -112,16 +112,16 @@ $GraphApiRequiredResourceAccess.ResourceAccess = $GraphiApiDelegatedUserRead
 
 #Create API Permission So Client Can Call Server
 $RequiredResourceAccess = New-Object -TypeName Microsoft.Open.AzureAD.Model.RequiredResourceAccess 
-$RequiredResourceAccess.ResourceAppId = $ServerApp.Appld
-$ResourceAccess = New-Object -TypeName Microsoft.Open.AzureAD.Model.ResourceAccess'
-$ResourceAccess.id = $ServerApp.Oauth2Permissions[2].Id 
+$RequiredResourceAccess.ResourceAppId = $ServerApp.AppId
+$ResourceAccess = New-Object -TypeName 'Microsoft.Open.AzureAD.Model.ResourceAccess'
+$ResourceAccess.id = $ServerApp.Oauth2Permissions[0].Id 
 $ResourceAccess.type='Scope'
 $RequiredResourceAccess.ResourceAccess=$ResourceAccess
 
 #######################################################################################################################
 
 #Apply Perm Changes
-$RequiredResourceAccess = E($GraphApiRequiredResourceAccess,$RequiredResourceAccess)
-$ClientApp = Set-AzureADApplication -Objectld $ClientApp.Objectld -RequiredResourceAccess $RequiredResourceAccess
+$RequiredResourceAccess = @($GraphApiRequiredResourceAccess,$RequiredResourceAccess)
+$ClientApp = Set-AzureADApplication -ObjectId $ClientApp.ObjectId -RequiredResourceAccess $RequiredResourceAccess
 
 #######################################################################################################################
