@@ -86,17 +86,17 @@ Write-Host "Got Access Token"
 #######################################################################################################################
 
 #Set Client App Auth Callback URLs
-Write-Host "Setting Reply Urls: $replyUrls 
+Write-Host "Setting Reply Urls: $replyUrls" 
 $header = @{
    "Content-Type" = "application/json" 
-   -Authorization- = "Bearer $accesstoken"
+   "Authorization" = "Bearer $accesstoken"
 }
 $body = @{
    "spa" = @{
       "redirectUris" = $replyUrls
    }
 }  | ConvertTo-Json
-Invoke-RestMethod -Method Patch -Uri Https://graph.microsoft.com/v1.0/applications $($ClientApp.ObjectId) -Headers $header -Body $body
+Invoke-RestMethod -Method Patch -Uri "https://graph.microsoft.com/v1.0/applications/$($ClientApp.ObjectId)" -Headers $header -Body $body
 
 #######################################################################################################################
 
