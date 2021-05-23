@@ -244,6 +244,16 @@ function AddRequiredResourceAccessIfNotExists {
         return
     }
 
+    if ($null -ne $ExistingRequiredResourceAccess){
+        $ResourceAccess = New-Object -TypeName 'Microsoft.Open.AzureAD.Model.ResourceAccess'
+        $ResourceAccess.id = $OAuth2Perm.Id
+        $ResourceAccess.type = 'Scope'
+        $ExistingRequiredResourceAccess.ResourceAccess.Add($ResourceAccess)
+        Set-AzureADApplication -ObjectId $AppToGrantPermsTo.ObjectId -RequiredResourceAccess $AppToGrantPermsTo.RequiredResourceAccess | Out-null
+        Write-Host "Granted $OAuthPermValueToGrant on $RequiredResourceAppName to $AppToGrantToName"
+        return
+    }
+
     $RequiredResourceAccess = New-Object -TypeName Microsoft.Open.AzureAD.Model.RequiredResourceAccess 
     $RequiredResourceAccess.ResourceAppId = $RequiredResourceApp.AppId
     $ResourceAccess = New-Object -TypeName 'Microsoft.Open.AzureAD.Model.ResourceAccess'
