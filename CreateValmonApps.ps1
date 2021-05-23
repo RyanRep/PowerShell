@@ -36,6 +36,42 @@ function CreateADApplicationIfNotExists {
     }
 }
 
+function GetAuthToken {
+    Write-Host "Getting Auth Token"
+    $auth_endpoint = $OctopusParameters["AzureAd:Authority"]
+    $token_endpoint = "$auth_endpoint/oauth2/v2.0/token"
+    $body = @{
+        client_id     = $OctopusParameters["AppOctopusAppClientID"]
+        scope         = "https://graph.microsoft.com/.default"
+        client_secret = $OctopusParameters["AzurePlatform.Application[ids].Deployment.ServicePrincipal.Secret"]
+        grant_type    = 'client_credentials'
+    }    
+    $responseOauth2 = Invoke-RestMethod -Method Post -Uri $token_endpoint -Body $body
+    $accessToken = $responseOauth2.access_token
+    return $accessToken
+}
+
+function SetReplyUrlsForAzureADApplication {
+    param(
+        [string] $AppName,
+        [string[]] $ReplyUrls
+    )
+    Write-Host "Setting Reply Urls: $ReplyUrls For $AppName"
+    $App = AssertADApplicationExists -AppName $AppName
+    Set-AzureADApplication -ObjectId $App.ObjectId $ReplyUrls New-Object System.Collections.Generic.List[String]
+    $header = @{
+        "Content-Type"  = "application/json"
+        "Authorization" = "Bearer $(GetAuthToken.accessToken)"
+    }
+    $body = @{
+        "spa" = @{
+            "redirectUris" = $ReplyUrls
+        }
+    } | ConvertTo-Json
+    Invoke-RestMethod -Method Patch -Uri "https://graph.microsoft.com/v1.0/applications/$($App.ObjectId)" -Headers $header -Body $body
+    Write-Host "Set Reply Urls: $ReplyUrls For $AppName"
+}
+
 function AssignGroupMembershipClaims {
     param(
         [string] $AppName,
@@ -241,16 +277,6 @@ function AddRequiredResourceAccessIfNotExists {
     $ExistingGrant = $ExistingRequiredResourceAccess.ResourceAccess | Where-Object { $_.Id -eq $OAuth2Perm.Id }
     if ($null -ne $ExistingGrant) {
         Write-Host "$OAuthPermValueToGrant On $RequiredResourceAppName Already Granted To $AppToGrantToName"
-        return
-    }
-
-    if ($null -ne $ExistingRequiredResourceAccess){
-        $ResourceAccess = New-Object -TypeName 'Microsoft.Open.AzureAD.Model.ResourceAccess'
-        $ResourceAccess.id = $OAuth2Perm.Id
-        $ResourceAccess.type = 'Scope'
-        $ExistingRequiredResourceAccess.ResourceAccess.Add($ResourceAccess)
-        Set-AzureADApplication -ObjectId $AppToGrantPermsTo.ObjectId -RequiredResourceAccess $AppToGrantPermsTo.RequiredResourceAccess | Out-null
-        Write-Host "Granted $OAuthPermValueToGrant on $RequiredResourceAppName to $AppToGrantToName"
         return
     }
 
